@@ -8,12 +8,16 @@
 # install ffmpeg
 sudo apt-get install ffmpeg
 
+# recommended to use gcc 10.2.0 for torch
+
 # install packages
 conda env create -f environment.yml
 
-python -m spacy download en_core_web_sm
-
 conda activate mgpt
+
+pip install -r requirements.txt
+
+python -m spacy download en_core_web_sm
 ```
 
 # Running FlowMDM
