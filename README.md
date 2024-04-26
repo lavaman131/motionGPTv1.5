@@ -138,6 +138,16 @@ Add `--use_chunked_att` to accelerate inference for very long compositions (impo
 
 ## 🏋️‍♂️ Training
 
+Configure the following paths in `./src/mgpt/constants/__init__.py` to your liking:
+
+```python
+# CHANGE HERE FOR YOUR DATA
+BABEL_DATA_DIR = Path("/projectnb/ivc-ml/alavaee/data/babel")
+HUMANML_DATA_DIR = Path("/projectnb/ivc-ml/alavaee/data/humanml")
+EXTRAPOLATION_DIR = Path("/projectnb/ivc-ml/alavaee/data/babel/extrapolation")
+PRECOMPUTED_DIR = Path("/projectnb/ivc-ml/alavaee/data/precomputed")
+```
+
 To retrain FlowMDM with Babel dataset run:
 
 ```bash
