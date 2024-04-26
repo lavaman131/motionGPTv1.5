@@ -1,46 +1,76 @@
-import argparse
 import os
-from mgpt.utils.visualize import vis_utils
-import shutil
-from tqdm import tqdm
+
+os.environ["DISPLAY"] = ":0.0"
+os.environ["PYOPENGL_PLATFORM"] = "osmesa"
+os.environ["MUJOCO_GL"] = "osmesa"
+from argparse import ArgumentParser
+import numpy as np
+import OpenGL.GL as gl
+import imageio
+import random
+import torch
+import moviepy.editor as mp
+from scipy.spatial.transform import Rotation as RRR
+from mgpt.render.pyrender.hybrik_loc2rot import HybrIKJointsToRotmat
+from mgpt.render.pyrender.smpl_render import SMPLRender
+from mgpt.constants.transforms import SMPL_DATA_PATH
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
+    parser.add_argument("--joints_path", type=str, help="Path to joints data")
+    parser.add_argument("--method", type=str, help="Method for rendering")
+    parser.add_argument("--output_mp4_path", type=str, help="Path to output MP4 file")
     parser.add_argument(
-        "--input_path",
-        type=str,
-        required=True,
-        help="stick figure mp4 file to be rendered.",
-    )
-    parser.add_argument("--cuda", type=bool, default=True, help="")
-    parser.add_argument("--device", type=int, default=0, help="")
-    params = parser.parse_args()
-
-    assert params.input_path.endswith(".mp4")
-    parsed_name = (
-        os.path.basename(params.input_path)
-        .replace(".mp4", "")
-        .replace("sample_rep", "")
-    )
-    sample_i = 0
-    rep_i = int(parsed_name)
-    npy_path = os.path.join(os.path.dirname(params.input_path), "results.npy")
-    out_npy_path = params.input_path.replace(".mp4", "_smpl_params.npy")
-    assert os.path.exists(npy_path)
-    results_dir = params.input_path.replace(".mp4", "_obj")
-    if os.path.exists(results_dir):
-        shutil.rmtree(results_dir)
-    os.makedirs(results_dir)
-
-    npy2obj = vis_utils.npy2obj(
-        npy_path, sample_i, rep_i, device=params.device, cuda=params.cuda
+        "--smpl_model_path", default=SMPL_DATA_PATH, type=str, help="Path to SMPL model"
     )
 
-    print("Saving obj files to [{}]".format(os.path.abspath(results_dir)))
-    for frame_i in tqdm(range(npy2obj.real_num_frames)):
-        npy2obj.save_obj(
-            os.path.join(results_dir, "frame{:03d}.obj".format(frame_i)), frame_i
+    args = parser.parse_args()
+
+    joints_path = args.joints_path
+    method = args.method
+    output_mp4_path = args.output_mp4_path
+    smpl_model_path = args.smpl_model_path
+
+    data = np.load(joints_path, allow_pickle=True)
+    data = data.item()["motion"]
+
+    if method == "slow":
+        if data.ndim == 4:
+            data = data[0]
+        data = data.transpose(2, 0, 1)
+        data = data - data[0, 0]
+        pose_generator = HybrIKJointsToRotmat()
+        pose = pose_generator(data)
+        pose = np.concatenate(
+            [pose, np.stack([np.stack([np.eye(3)] * pose.shape[0], 0)] * 2, 1)], 1
         )
+        shape = [768, 768]
+        render = SMPLRender(smpl_model_path)
 
-    print("Saving SMPL params to [{}]".format(os.path.abspath(out_npy_path)))
-    npy2obj.save_npy(out_npy_path)
+        r = RRR.from_rotvec(np.array([np.pi, 0.0, 0.0]))
+        pose[:, 0] = np.matmul(r.as_matrix().reshape(1, 3, 3), pose[:, 0])
+        vid = []
+        aroot = data[:, 0]
+        aroot[:, 1:] = -aroot[:, 1:]
+        params = dict(pred_shape=np.zeros([1, 10]), pred_root=aroot, pred_pose=pose)
+        render.init_renderer([shape[0], shape[1], 3], params)
+        for i in range(data.shape[0]):
+            renderImg = render.render(i)
+            vid.append(renderImg)
+
+        out = np.stack(vid, axis=0)
+        output_gif_path = output_mp4_path[:-4] + ".gif"
+        imageio.mimwrite(output_gif_path, out, duration=50)
+        out_video = mp.VideoFileClip(output_gif_path)
+        out_video.write_videofile(output_mp4_path, codec="libx264")
+
+    # elif method == "fast":
+    #     output_gif_path = output_mp4_path[:-4] + ".gif"
+    #     if len(data.shape) == 3:
+    #         data = data[None]
+    #     if isinstance(data, torch.Tensor):
+    #         data = data.cpu().numpy()
+    #     pose_vis = plot_3d.draw_to_batch(data, [""], [output_gif_path])
+    #     out_video = mp.VideoFileClip(output_gif_path)
+    #     out_video.write_videofile(output_mp4_path)
