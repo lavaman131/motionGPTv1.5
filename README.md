@@ -1,6 +1,6 @@
 # MotionGPTv2
 
-# Get started
+# 🚀 Get started
 
 ## 🛠️ Installation
 
@@ -19,8 +19,6 @@ pip install -r requirements.txt
 
 python -m spacy download en_core_web_sm
 ```
-
-# Running FlowMDM
 
 ## 🗂️ Data preparation (required only for evaluation/training)
 
@@ -43,7 +41,7 @@ cp -r ../HumanML3D/HumanML3D ./dataset/HumanML3D
 
 </details>
 
-## 🎬 Visualization - Option 1
+# 🎬 Visualization
 
 To generate examples of human motion compositions with Babel model run:
 
@@ -101,13 +99,8 @@ python tools/render_mesh.py \
   1. Use the [SMPL add-on](https://smpl.is.tue.mpg.de/index.html) and the theta parameters saved to `sample_rep##_smpl_params.npy` (we always use beta=0 and the gender-neutral model).
   1. A more straightforward way is using the mesh data itself. All meshes have the same topology (SMPL), so you just need to keyframe vertex locations. 
      Since the OBJs are not preserving vertices order, we also save this data to the `sample_rep##_smpl_params.npy` file for your convenience.
-     
 
-## 🎬 Visualization - Option 2 (fancier, like demo videos)
-
---- TO BE ADDED ---
-
-## 📊 Evaluation
+# 📊 Evaluation
 
 To reproduce the Babel evaluation over the motion and transition run:
 
@@ -139,8 +132,7 @@ Add `--use_chunked_att` to accelerate inference for very long compositions (impo
 > [!NOTE]
 > During evaluation, generated motions are backed up to be used in successive evaluations. This is useful in case you want to change some evaluation parameters such as the `transition_length` and avoid regenerating all evaluation sequences. 
 
-
-## 🏋️‍♂️ Training
+# 🏋️‍♂️ Training
 
 Configure the following paths in `./src/mgpt/constants/__init__.py` to your liking:
 
