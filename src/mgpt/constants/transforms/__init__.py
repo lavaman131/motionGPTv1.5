@@ -22,12 +22,12 @@ ROT_CONVENTION_TO_ROT_NUMBER = {
 GENDERS = ["neutral", "male", "female"]
 NUM_BETAS = 10
 
-
-GMM_MODEL_DIR = THIRD_PARTY_DIR.joinpath("joints2smpl", "smpl_models")
-SMPL_MEAN_FILE = THIRD_PARTY_DIR.joinpath(
+TRANSFORMS_DIR = THIRD_PARTY_DIR.joinpath("transforms")
+GMM_MODEL_DIR = TRANSFORMS_DIR.joinpath("joints2smpl", "smpl_models")
+SMPL_MEAN_FILE = TRANSFORMS_DIR.joinpath(
     "joints2smpl", "smpl_models", "neutral_smpl_mean_params.h5"
 )
-TRANSFORMS_DIR = THIRD_PARTY_DIR.joinpath("transforms")
+
 # for collision
 PART_SEG_DIR = TRANSFORMS_DIR.joinpath(
     "joints2smpl", "smpl_models", "smplx_parts_segm.pkl"

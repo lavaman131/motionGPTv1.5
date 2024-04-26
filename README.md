@@ -171,3 +171,9 @@ python tools/train.py \
   --wandb_project mgpt \
   --wandb_entity lavaalex
 ```
+
+# 🤝 Acknowledgements
+
+[MotionGPT](https://github.com/OpenMotionLab/MotionGPT): Inspired ideas for the project.
+[FlowMDM](https://github.com/BarqueroGerman/FlowMDM/tree/main): Inherited for 3D motion synthesis.
+[llama3](https://github.com/meta-llama/llama3)
