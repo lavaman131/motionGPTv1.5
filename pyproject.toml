@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mgpt"
+authors = [
+    { name = 'Alex Lavaee', email = 'alavaee@bu.edu' },
+]
+description = 'A 3D motion generation model.'
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+dynamic = ["version"]
+
+[tool.setuptools.packages.find]
+# All the following settings are optional:
+where = ["src"]  # ["."] by default
+
+[tool.setuptools.dynamic]
+version = { attr = "mgpt.__version__" }
