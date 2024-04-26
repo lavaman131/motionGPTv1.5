@@ -11,6 +11,8 @@ sudo apt-get install ffmpeg
 # install packages
 conda env create -f environment.yml
 
+python -m spacy download en_core_web_sm
+
 conda activate mgpt
 ```
 
@@ -42,13 +44,24 @@ cp -r ../HumanML3D/HumanML3D ./dataset/HumanML3D
 To generate examples of human motion compositions with Babel model run:
 
 ```bash
-python -m runners.generate --model_path ./results/babel/FlowMDM/model001300000.pt --num_repetitions 1 --bpe_denoising_step 60 --guidance_param 1.5 --instructions_file ./runners/jsons/composition_babel.json
+python tools/generate.py \
+  --model_path ./results/babel/FlowMDM/model001300000.pt \
+  --num_repetitions 1 \
+  --bpe_denoising_step 60 \
+  --guidance_param 1.5 \
+  --instructions_file ./instructions/composition_babel.json
 ```
 
 To generate examples of human motion compositions with HumanML3D model run:
 
 ```bash
-python -m runners.generate --model_path ./results/humanml/FlowMDM/model000500000.pt --num_repetitions 1 --bpe_denoising_step 125 --guidance_param 2.5 --instructions_file ./runners/jsons/composition_humanml.json --use_chunked_att
+python tools/generate.py \
+  --model_path ./results/humanml/FlowMDM/model000500000.pt \
+  --num_repetitions 1 \
+  --bpe_denoising_step 125 \
+  --guidance_param 2.5 \
+  --instructions_file ./instructions/composition_humanml.json \
+  --use_chunked_att
 ```
 
 If you have downloaded the datasets, you can replace `--instructions_file FILE` with `--num_samples N` to randomly sample N textual descriptions and lengths from the datasets.
@@ -66,7 +79,8 @@ It will look something like this:
 To create SMPL mesh per frame run:
 
 ```shell
-python -m runners.render_mesh --input_path /path/to/mp4/stick/figure/file
+python tools/render_mesh.py \
+  --input_path /path/to/mp4/stick/figure/file
 ```
 
 **This script outputs:**
@@ -94,13 +108,26 @@ python -m runners.render_mesh --input_path /path/to/mp4/stick/figure/file
 To reproduce the Babel evaluation over the motion and transition run:
 
 ```bash
-python -m runners.eval --model_path ./results/babel/FlowMDM/model001300000.pt --dataset babel --eval_mode final --bpe_denoising_step 60 --guidance_param 1.5 --transition_length 30
+python tools/evaluate.py \
+  --model_path ./results/babel/FlowMDM/model001300000.pt \
+  --dataset babel \
+  --eval_mode final \
+  --bpe_denoising_step 60 \
+  --guidance_param 1.5 \
+  --transition_length 30
 ```
 
 To reproduce the HumanML3D evaluation over the motion and transition run:
 
 ```bash
-python -m runners.eval --model_path ./results/humanml/FlowMDM/model000500000.pt --dataset humanml --eval_mode final --bpe_denoising_step 125 --guidance_param 2.5 --transition_length 60 --use_chunked_att
+python tools/evaluate.py \
+  --model_path ./results/humanml/FlowMDM/model000500000.pt \
+  --dataset humanml \
+  --eval_mode final \
+  --bpe_denoising_step 125 \
+  --guidance_param 2.5 \
+  --transition_length 60 \
+  --use_chunked_att
 ```
 
 Add `--use_chunked_att` to accelerate inference for very long compositions (imported from LongFormer, and recommended for HumanML3D). Evaluation can take >12h for the 10 repetitions depending on the GPU power. Use `--eval_mode fast` for a quick evaluation run (3 rep.). 
@@ -114,11 +141,27 @@ Add `--use_chunked_att` to accelerate inference for very long compositions (impo
 To retrain FlowMDM with Babel dataset run:
 
 ```bash
-python -m runners.train --save_dir ./results/babel/FlowMDM_retrained --dataset babel --batch_size 64 --num_steps 1300000 --rpe_horizon 100
+python tools/train.py \
+  --save_dir ./results/babel/FlowMDM_retrained \
+  --dataset babel \
+  --batch_size 64 \
+  --num_steps 1300000 \
+  --rpe_horizon 100 \
+  --train_platform_type WandbPlatform \
+  --wandb_project mgpt \
+  --wandb_entity lavaalex
 ```
 
 To retrain FlowMDM with HumanML3D dataset run:
 
 ```bash
-python -m runners.train --save_dir ./results/humanml/FlowMDM_retrained --dataset humanml --batch_size 64 --num_steps 500000 --rpe_horizon 150
+python tools/train.py \
+  --save_dir ./results/babel/FlowMDM_retrained \
+  --dataset humanml \
+  --batch_size 64 \
+  --num_steps 500000 \
+  --rpe_horizon 150 \
+  --train_platform_type WandbPlatform \
+  --wandb_project mgpt \
+  --wandb_entity lavaalex
 ```
