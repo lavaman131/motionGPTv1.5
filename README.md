@@ -43,7 +43,9 @@ cp -r ../HumanML3D/HumanML3D ./dataset/HumanML3D
 
 # 🎬 Visualization
 
-To generate examples of human motion compositions with Babel model run:
+To generate the motions use the following scripts:
+
+For Babel dataset run:
 
 ```bash
 python tools/generate.py \
@@ -51,7 +53,8 @@ python tools/generate.py \
   --num_repetitions 1 \
   --bpe_denoising_step 60 \
   --guidance_param 1.5 \
-  --instructions_file ./instructions/composition_babel.json
+  --instructions_file ./instructions/composition_babel.json \
+  --output_dir ./results/output
 ```
 
 To generate examples of human motion compositions with HumanML3D model run:
@@ -63,7 +66,8 @@ python tools/generate.py \
   --bpe_denoising_step 125 \
   --guidance_param 2.5 \
   --instructions_file ./instructions/composition_humanml.json \
-  --use_chunked_att
+  --use_chunked_att \
+  --output_dir ./results/output
 ```
 
 If you have downloaded the datasets, you can replace `--instructions_file FILE` with `--num_samples N` to randomly sample N textual descriptions and lengths from the datasets.
@@ -76,13 +80,29 @@ It will look something like this:
 
 ![example](../assets/mp4_example.gif)
 
-### Render SMPL mesh (thanks to MDM project)
+## 🎨 Rendering
 
-To create SMPL mesh per frame run:
+### Render keypoints
 
-```shell
-python tools/render_mesh.py \
-  --input_path /path/to/mp4/stick/figure/file
+To render keypoints per frame (replacing `--dataset` with the correct name) run:
+
+```bash
+python tools/render.py \
+  --joints_path ./results/output/results.npy \
+  --method fast \
+  --output_path ./results/output
+```
+
+### Render SMPL mesh
+
+To create SMPL mesh per frame (replacing `--dataset` with the correct name) run:
+
+```bash
+python tools/render.py \
+  --joints_path ./results/output/results.npy \
+  --method slow \
+  --dataset babel \
+  --output_path ./results/output
 ```
 
 **This script outputs:**
@@ -97,7 +117,7 @@ python tools/render_mesh.py \
 **Notes for 3d makers:**
 * You have two ways to animate the sequence:
   1. Use the [SMPL add-on](https://smpl.is.tue.mpg.de/index.html) and the theta parameters saved to `sample_rep##_smpl_params.npy` (we always use beta=0 and the gender-neutral model).
-  1. A more straightforward way is using the mesh data itself. All meshes have the same topology (SMPL), so you just need to keyframe vertex locations. 
+  2. A more straightforward way is using the mesh data itself. All meshes have the same topology (SMPL), so you just need to keyframe vertex locations. 
      Since the OBJs are not preserving vertices order, we also save this data to the `sample_rep##_smpl_params.npy` file for your convenience.
 
 # 📊 Evaluation
@@ -134,14 +154,15 @@ Add `--use_chunked_att` to accelerate inference for very long compositions (impo
 
 # 🏋️‍♂️ Training
 
-Configure the following paths in `./src/mgpt/constants/__init__.py` to your liking:
+Configure the following paths in `./src/mgpt/constants/__init__.py` to your configuration:
 
 ```python
-# CHANGE HERE FOR YOUR DATA
+# CHANGE HERE TO PATHS FOR YOUR CONFIGURATION
 BABEL_DATA_DIR = Path("/projectnb/ivc-ml/alavaee/data/babel")
 HUMANML_DATA_DIR = Path("/projectnb/ivc-ml/alavaee/data/humanml")
 EXTRAPOLATION_DIR = Path("/projectnb/ivc-ml/alavaee/data/babel/extrapolation")
 PRECOMPUTED_DIR = Path("/projectnb/ivc-ml/alavaee/data/precomputed")
+#############################################
 ```
 
 To retrain FlowMDM with Babel dataset run:
