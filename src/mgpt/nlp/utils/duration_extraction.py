@@ -9,7 +9,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from transformers import DistilBertTokenizer, DistilBertModel
 import torch.nn.functional as F
 
-pl.seed_everything(42)
 UNK_TOKEN = "<unk>"
 UNK_INDEX = 0
 torch.set_float32_matmul_precision("high")
@@ -206,4 +205,5 @@ def main():
 
 
 if __name__ == "__main__":
+    pl.seed_everything(42)
     main()

@@ -71,13 +71,15 @@ def fast_render(data, output_path, unconstrained=False, dataset="babel"):
     except Exception as e:
         print(f"Error while processing sample: {e}")
 
-    save_multiple_samples(
+    motion_save_path = save_multiple_samples(
         num_repetitions,
         str(output_path),
         row_print_template,
         row_file_template,
         rep_files,
     )
+
+    return motion_save_path
 
 
 def slow_render(data, output_path, smpl_model_path):

@@ -68,14 +68,6 @@ text = tokenizer.decode(response, skip_special_tokens=True)
 
 print(text)
 
-model_dir = PRECOMPUTED_DIR.joinpath(
-    "duration_extraction_model", "epoch=19-step=1980.ckpt"
-)
-
-model = MotionDurationModel.load_from_checkpoint(model_dir)
-
-# Tokenize the phrases and create a mapping
-tokenizer = DistilBertTokenizer.from_pretrained("distilbert/distilbert-base-uncased")
 
 motion_json = get_motion_dict_from_response(text, model, tokenizer, model.device)
 
@@ -101,7 +93,8 @@ Popen(
         instructions_fname,
         "--output_dir",
         output_dir,
-    ]
+    ],
+    shell=True,
 )
 
 data = np.load(output_dir, allow_pickle=True)

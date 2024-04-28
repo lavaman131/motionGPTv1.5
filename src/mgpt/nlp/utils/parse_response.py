@@ -62,6 +62,8 @@ class MotionInstruction(TypedDict):
 
 def get_motion_dict_from_response(
     response: str,
+    start_idx: int,
+    end_idx: int,
     model: MotionDurationModel,
     tokenizer: DistilBertTokenizer,
     device: Union[str, torch.device],
@@ -69,10 +71,7 @@ def get_motion_dict_from_response(
     """
     Extracts the motion json from the response.
     """
-    start_idx = response.find("<motion>")
-    end_idx = response.find("</motion>")
-    if start_idx == -1 or end_idx == -1:
-        return None
+    assert start_idx < end_idx and start_idx >= 0 and end_idx >= 0, "Invalid indices"
     try:
         raw_motion_json = json.loads(response[start_idx + len("<motion>") : end_idx])
         motion_json: MotionInstruction = {"text": [], "lengths": []}

@@ -1,7 +1,7 @@
 wandb==0.16.6
 einops==0.7.0
 matplotlib==3.2
-gradio==4.28.0
+gradio==4.28.3
 moviepy==1.0.3
 opencv-python==4.9.0.80
 mapbox-earcut==1.0.1
@@ -9,9 +9,12 @@ hf_transfer==0.1.6
 accelerate==0.29.3
 bitsandbytes==0.43.1
 langchain-chroma
+langchain
+pydantic
 sentence-transformers==2.7.0
 torchtext==0.18.0
 thefuzz==0.22.1
+"uvicorn[standard]"
 git+https://github.com/mcfletch/pyopengl.git
 git+https://github.com/mattloper/chumpy
 git+https://github.com/openai/CLIP.git

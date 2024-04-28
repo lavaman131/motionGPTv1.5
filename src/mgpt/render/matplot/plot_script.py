@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import mpl_toolkits.mplot3d.axes3d as p3
+import time
 
 # import cv2
 from textwrap import wrap
@@ -515,16 +516,20 @@ def save_multiple_samples(
     )
     os.system(ffmpeg_rep_cmd)
     print(row_print_template.format(all_rep_save_file))
+    return all_rep_save_path
 
 
 def construct_template_variables(unconstrained):
-    row_file_template = "sample_all.mp4"
+    fname = time.strftime("%Y-%m-%d-%H_%M_%S", time.localtime(time.time())) + str(
+        np.random.randint(10000, 99999)
+    )
+    row_file_template = f"{fname}_sample_all.mp4"
     if unconstrained:
-        sample_file_template = "sample_rep{:02d}.mp4"
+        sample_file_template = fname + "_" + "sample_rep{:02d}.mp4"
         sample_print_template = "[rep #{:02d} | -> {}]"
         row_print_template = "[all repetitions | -> {}]"
     else:
-        sample_file_template = "sample_rep{:02d}.mp4"
+        sample_file_template = fname + "_" + "sample_rep{:02d}.mp4"
         sample_print_template = "[Rep #{:02d} | -> {}]"
         row_print_template = "[all repetitions | -> {}]"
 
