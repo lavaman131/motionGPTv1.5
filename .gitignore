@@ -1,6 +1,10 @@
 # logging
 wandb
 results
+lightning_logs
+
+# data
+precomputed
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

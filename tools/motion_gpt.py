@@ -1,11 +1,20 @@
+import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import torch
 import os
 from mgpt.nlp.utils.parse_response import (
     load_system_prompt_from_text,
     get_motion_dict_from_response,
+    tokenize_and_preserve_words,
 )
-from mgpt.nlp import PROMPT_LIBRARY_DIR
+from render import fast_render
+from mgpt.nlp import PROMPT_LIBRARY_DIR, PRECOMPUTED_DIR
+from mgpt.nlp.utils.duration_extraction import (
+    MotionDurationModel,
+)
+import json
+from subprocess import Popen
+from transformers import DistilBertTokenizer
 
 model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
 
@@ -59,6 +68,42 @@ text = tokenizer.decode(response, skip_special_tokens=True)
 
 print(text)
 
-motion_json = get_motion_dict_from_response(text)
+model_dir = PRECOMPUTED_DIR.joinpath(
+    "duration_extraction_model", "epoch=19-step=1980.ckpt"
+)
 
-print(motion_json)
+model = MotionDurationModel.load_from_checkpoint(model_dir)
+
+# Tokenize the phrases and create a mapping
+tokenizer = DistilBertTokenizer.from_pretrained("distilbert/distilbert-base-uncased")
+
+motion_json = get_motion_dict_from_response(text, model, tokenizer, model.device)
+
+instructions_fname = "./instructions/llm_motion.json"
+with open(instructions_fname, "w") as f:
+    json.dump(motion_json, f)
+
+output_dir = "./results/output"
+
+Popen(
+    [
+        "python",
+        "generate.py",
+        "--model_path",
+        "./results/babel/FlowMDM/model001300000.pt",
+        "--num_repetitions",
+        "1",
+        "--bpe_denoising_step",
+        "60",
+        "--guidance_param",
+        "1.5",
+        "--instructions_file",
+        instructions_fname,
+        "--output_dir",
+        output_dir,
+    ]
+)
+
+data = np.load(output_dir, allow_pickle=True)
+
+fast_render(data, output_path=output_dir, dataset="babel")
