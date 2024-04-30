@@ -516,13 +516,9 @@ def save_multiple_samples(
     )
     os.system(ffmpeg_rep_cmd)
     print(row_print_template.format(all_rep_save_file))
-    return all_rep_save_path
 
 
-def construct_template_variables(unconstrained):
-    fname = time.strftime("%Y-%m-%d-%H_%M_%S", time.localtime(time.time())) + str(
-        np.random.randint(10000, 99999)
-    )
+def construct_template_variables(fname, unconstrained):
     row_file_template = f"{fname}_sample_all.mp4"
     if unconstrained:
         sample_file_template = fname + "_" + "sample_rep{:02d}.mp4"

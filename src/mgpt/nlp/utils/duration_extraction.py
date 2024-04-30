@@ -6,23 +6,27 @@ import torch.utils.data
 from mgpt.nlp import PRECOMPUTED_DIR
 import pickle
 from pytorch_lightning.callbacks import ModelCheckpoint
-from transformers import DistilBertTokenizer, DistilBertModel
+from transformers import AutoTokenizer, AutoModel
 import torch.nn.functional as F
+from transformers import (
+    get_linear_schedule_with_warmup,
+    DataCollatorForTokenClassification,
+)
+from transformers.data.data_collator import pad_without_fast_tokenizer_warning
+from typing import Dict, List
+import torchmetrics
 
-UNK_TOKEN = "<unk>"
-UNK_INDEX = 0
 torch.set_float32_matmul_precision("high")
 
 
 class MotionDurationModel(pl.LightningModule):
-    def __init__(
-        self,
-    ):
+    def __init__(self, lr=2e-5):
         super().__init__()
+        self.lr = lr
         self.save_hyperparameters()
-        self.bert = DistilBertModel.from_pretrained(
-            "distilbert/distilbert-base-uncased"
-        )
+        self.loss = torchmetrics.MeanSquaredError()
+        self.val_loss = torchmetrics.MeanSquaredError()
+        self.bert = AutoModel.from_pretrained("distilbert/distilbert-base-cased")
         self.lstm = nn.LSTM(self.bert.config.hidden_size, 128, batch_first=True)
         self.fc = nn.Linear(128, 1)
 
@@ -31,134 +35,149 @@ class MotionDurationModel(pl.LightningModule):
         last_hidden_states = outputs[0]
         x, _ = self.lstm(last_hidden_states)
         x = self.fc(x)
-        # enforce non-negative duration
+        # # enforce non-negative duration
         x = nn.ReLU()(x)
         return x.squeeze(-1)
-
-    def calculate_loss(self, preds, labels, lengths):
-        mask = torch.zeros_like(preds, dtype=torch.bool)
-        for i, length in enumerate(lengths):
-            mask[i, :length] = 1
-        masked_preds = preds[mask]
-        masked_labels = labels[mask]
-        loss = nn.MSELoss()(masked_preds, masked_labels)
-        return loss
 
     def training_step(self, batch, batch_idx):
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
         labels = batch["labels"]
-        lengths = batch["lengths"]
         preds = self(input_ids, attention_mask)
-        loss = self.calculate_loss(preds, labels, lengths)
-        self.log("train_loss", loss, prog_bar=True)
+        mask = labels != -100
+        loss = self.loss(preds[mask], labels[mask])
+        self.log("train_loss", self.loss, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
         labels = batch["labels"]
-        lengths = batch["lengths"]
         preds = self(input_ids, attention_mask)
         self.eval()
+        mask = labels != -100
         with torch.no_grad():
-            loss = self.calculate_loss(preds, labels, lengths)
-        self.log("val_loss", loss, prog_bar=True)
+            self.val_loss.update(preds[mask], labels[mask])
+        self.log("val_loss", self.val_loss, on_step=True, prog_bar=True)
         self.train()
 
     def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=2e-5)
-
-
-def collate_fn(batch):
-    # Separate the input features and labels
-    input_ids = torch.stack([item["input_ids"] for item in batch])
-    attention_mask = torch.stack([item["attention_mask"] for item in batch])
-    labels = [item["labels"] for item in batch]
-
-    # Determine the maximum label length in the batch
-    max_length = input_ids[0].size(0)
-
-    # Pad the labels and store the original label lengths
-    padded_labels = []
-    lengths = []
-    for label in labels:
-        padded_label = label + [0] * (max_length - len(label))
-        padded_labels.append(padded_label)
-        lengths.append(len(label))
-
-    padded_labels = torch.tensor(padded_labels)
-    lengths = torch.tensor(lengths)
-
-    return {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-        "labels": padded_labels,
-        "lengths": lengths,
-    }
-
-
-def tokenize_and_preserve_labels(
-    sentence, text_labels, tokenizer, add_special_tokens=True
-):
-    tokenized_sentence = []
-    labels = []
-
-    for word, label in zip(sentence, text_labels):
-        # Tokenize the word and count # of subwords the word is broken into
-        tokenized_word = tokenizer.tokenize(word)
-        n_subwords = len(tokenized_word)
-
-        # Add the tokenized word to the final tokenized word list
-        tokenized_sentence.extend(tokenized_word)
-
-        # Add the same label to the new list of labels `n_subwords` times
-        labels.extend([label] * n_subwords)
-
-    if add_special_tokens:
-        tokenized_sentence = (
-            [f"{tokenizer.cls_token}"] + tokenized_sentence + [f"{tokenizer.sep_token}"]
+        optimizer = torch.optim.AdamW(self.parameters(), lr=2e-5)
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=0,
+            num_training_steps=self.trainer.max_steps,
         )
-        labels = [0] + labels + [0]
-
-    return tokenized_sentence, labels
+        return [optimizer], [scheduler]
 
 
-def prepare_data(stats):
+class DataCollatorForTokenRegression(DataCollatorForTokenClassification):
+    def __call__(
+        self, features: List[Dict[str, torch.Tensor]]
+    ) -> Dict[str, torch.Tensor]:
+        label_name = "label" if "label" in features[0].keys() else "labels"
+        labels = (
+            [feature[label_name] for feature in features]
+            if label_name in features[0].keys()
+            else None
+        )
+
+        no_labels_features = [
+            {k: v for k, v in feature.items() if k != label_name}
+            for feature in features
+        ]
+
+        batch = pad_without_fast_tokenizer_warning(
+            self.tokenizer,
+            no_labels_features,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors="pt",
+        )
+
+        if labels is None:
+            return batch
+
+        sequence_length = batch["input_ids"].shape[1]
+        padding_side = self.tokenizer.padding_side
+
+        def to_list(tensor_or_iterable):
+            if isinstance(tensor_or_iterable, torch.Tensor):
+                return tensor_or_iterable.tolist()
+            return list(tensor_or_iterable)
+
+        if padding_side == "right":
+            batch[label_name] = [
+                to_list(label)
+                + [self.label_pad_token_id] * (sequence_length - len(label))
+                for label in labels
+            ]
+        else:
+            batch[label_name] = [
+                [self.label_pad_token_id] * (sequence_length - len(label))
+                + to_list(label)
+                for label in labels
+            ]
+
+        batch[label_name] = torch.tensor(batch[label_name], dtype=torch.float32)
+        return batch
+
+
+def align_labels_with_tokens(labels, word_ids):
+    new_labels = []
+    current_word = None
+    for word_id in word_ids:
+        if word_id != current_word:
+            # Start of a new word!
+            current_word = word_id
+            label = -100 if word_id is None else labels[word_id]
+            new_labels.append(label)
+        elif word_id is None:
+            # Special token
+            new_labels.append(-100)
+        else:
+            # Same word as previous token
+            label = labels[word_id]
+            # If the label is B-XXX we change it to I-XXX
+            if label % 2 == 1:
+                label += 1
+            new_labels.append(label)
+
+    return new_labels
+
+
+def tokenize_and_align_labels(tokens, all_labels, tokenizer):
+    tokenized_inputs = tokenizer(tokens, truncation=True, is_split_into_words=True)
+    new_labels = []
+    for i, labels in enumerate(all_labels):
+        word_ids = tokenized_inputs.word_ids(i)
+        new_labels.append(align_labels_with_tokens(labels, word_ids))
+
+    tokenized_inputs["labels"] = new_labels
+    return tokenized_inputs
+
+
+def prepare_data(stats, tokenizer):
     phrases = stats["action_sequences"]
     duration_labels = stats["duration_sequences"]
 
-    # Tokenize the phrases and create a mapping
-    tokenizer = DistilBertTokenizer.from_pretrained(
-        "distilbert/distilbert-base-uncased"
-    )
-
-    tokenized_texts = []
-    tokenized_labels = []
+    sentences = []
+    all_labels = []
     for phrase, label in zip(phrases, duration_labels):
         sentence = [stats["id_to_action"][action] for action in phrase]
-        tokenized_sentence, labels = tokenize_and_preserve_labels(
-            sentence, label, tokenizer
-        )
-        assert len(tokenized_sentence) == len(labels)
-        tokenized_texts.append(tokenized_sentence)
-        tokenized_labels.append(labels)
+        sentences.append(sentence)
+        all_labels.append(label)
 
-    output = tokenizer(
-        tokenized_texts,
-        is_split_into_words=True,
-        padding=True,
-        return_tensors="pt",
-        add_special_tokens=False,
-    )
+    tokenized_inputs = tokenize_and_align_labels(sentences, all_labels, tokenizer)
 
     dataset = [
         {
-            "input_ids": output["input_ids"][i],
-            "attention_mask": output["attention_mask"][i],
-            "labels": tokenized_labels[i],
+            "input_ids": tokenized_inputs["input_ids"][i],
+            "attention_mask": tokenized_inputs["attention_mask"][i],
+            "labels": tokenized_inputs["labels"][i],
         }
-        for i in range(len(tokenized_labels))
+        for i in range(len(tokenized_inputs["labels"]))
     ]
 
     return dataset
@@ -170,7 +189,10 @@ def main():
     bs = 32
     model = MotionDurationModel()
 
-    dataset = prepare_data(stats)
+    # Tokenize the phrases and create a mapping
+    tokenizer = AutoTokenizer.from_pretrained("distilbert/distilbert-base-cased")
+
+    dataset = prepare_data(stats, tokenizer)
 
     train_frac, val_frac = 0.8, 0.2
     # default collate and splits into train and val
@@ -178,12 +200,14 @@ def main():
         dataset, [train_frac, val_frac]
     )
 
+    collate_fn = DataCollatorForTokenRegression(tokenizer)
+
     # Training
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=bs, collate_fn=collate_fn, num_workers=4
+        train_dataset, batch_size=bs, collate_fn=collate_fn
     )
     val_dataloader = torch.utils.data.DataLoader(
-        val_dataset, batch_size=bs, collate_fn=collate_fn, num_workers=4
+        val_dataset, batch_size=bs, collate_fn=collate_fn
     )
 
     callbacks = [
@@ -194,8 +218,9 @@ def main():
     ]
 
     # Training
+    max_steps = 2000
     trainer = pl.Trainer(
-        max_epochs=20,
+        max_steps=max_steps,
         callbacks=callbacks,
         log_every_n_steps=5,
         check_val_every_n_epoch=5,

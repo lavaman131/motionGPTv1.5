@@ -25,7 +25,7 @@ from pathlib import Path
 datasets_fps = {"humanml": 20, "babel": 30}
 
 
-def fast_render(data, output_path, unconstrained=False, dataset="babel"):
+def fast_render(data, save_fname, output_path, unconstrained=False, dataset="babel"):
     all_motions = data.item()["motion"]
     all_text = data.item()["text"]
     lengths_list = data.item()["lengths"]
@@ -39,9 +39,11 @@ def fast_render(data, output_path, unconstrained=False, dataset="babel"):
         row_print_template,
         sample_file_template,
         row_file_template,
-    ) = construct_template_variables(unconstrained)
+    ) = construct_template_variables(save_fname, unconstrained)
 
     fps = datasets_fps[dataset]
+
+    output_path = Path(output_path)
 
     try:
         rep_files = []
@@ -71,15 +73,13 @@ def fast_render(data, output_path, unconstrained=False, dataset="babel"):
     except Exception as e:
         print(f"Error while processing sample: {e}")
 
-    motion_save_path = save_multiple_samples(
+    save_multiple_samples(
         num_repetitions,
         str(output_path),
         row_print_template,
         row_file_template,
         rep_files,
     )
-
-    return motion_save_path
 
 
 def slow_render(data, output_path, smpl_model_path):

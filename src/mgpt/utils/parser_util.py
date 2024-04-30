@@ -4,20 +4,22 @@ import os
 import json
 
 
-def parse_and_load_from_model(parser, update_args=True):
+def parse_and_load_from_model(parser, manual_model_path=None, update_args=True):
     # args according to the loaded model
     # do not try to specify them from cmd line since they will be overwritten
     add_data_options(parser)
     add_model_options(parser)
     add_diffusion_options(parser)
     args = parser.parse_args()
+    if manual_model_path:
+        args.model_path = manual_model_path
     if update_args:
         args_to_overwrite = []
         for group_name in ["dataset", "model", "diffusion"]:
             args_to_overwrite += get_args_per_group_name(parser, args, group_name)
 
         # load args from model
-        model_path = get_model_path_from_args()
+        model_path = args.model_path
         dir = os.path.dirname(model_path) if os.path.isfile(model_path) else model_path
         args_path = os.path.join(dir, "args.json")
         print(args_path, model_path)
@@ -62,14 +64,14 @@ def get_args_per_group_name(parser, args, group_name):
     return ValueError("group_name was not found.")
 
 
-def get_model_path_from_args():
-    try:
-        dummy_parser = ArgumentParser()
-        dummy_parser.add_argument("model_path")
-        dummy_args, _ = dummy_parser.parse_known_args()
-        return dummy_args.model_path
-    except:
-        raise ValueError("model_path argument must be specified.")
+# def get_model_path_from_args():
+#     try:
+#         dummy_parser = ArgumentParser()
+#         dummy_parser.add_argument("model_path")
+#         dummy_args, _ = dummy_parser.parse_known_args()
+#         return dummy_args.model_path
+#     except:
+#         raise ValueError("model_path argument must be specified.")
 
 
 def add_base_options(parser):
@@ -296,7 +298,6 @@ def add_sampling_options(parser):
     group = parser.add_argument_group("sampling")
     group.add_argument(
         "--model_path",
-        required=True,
         type=str,
         help="Path to model####.pt file to be sampled.",
     )
@@ -420,7 +421,6 @@ def add_evaluation_options(parser):
     group = parser.add_argument_group("eval")
     group.add_argument(
         "--model_path",
-        required=True,
         type=str,
         help="Path to model####.pt file to be sampled.",
     )
@@ -496,7 +496,7 @@ def generate_unfolding_args(parser):
     )
 
 
-def generate_args():
+def generate_args(model_path=None):
     parser = ArgumentParser()
     # args specified by the user: (all other will be loaded from the model)
     add_base_options(parser)
@@ -505,24 +505,24 @@ def generate_args():
     add_generate_unfolded_options(parser)
     generate_unfolding_args(parser)
 
-    args = parse_and_load_from_model(parser)
+    args = parse_and_load_from_model(parser, model_path)
     return args
 
 
-def edit_args():
+def edit_args(model_path=None):
     parser = ArgumentParser()
     # args specified by the user: (all other will be loaded from the model)
     add_base_options(parser)
     add_sampling_options(parser)
     add_edit_options(parser)
-    return parse_and_load_from_model(parser)
+    return parse_and_load_from_model(parser, model_path)
 
 
-def evaluation_parser():
+def evaluation_parser(model_path=None):
     parser = ArgumentParser()
     # args specified by the user: (all other will be loaded from the model)
     add_base_options(parser)
     add_evaluation_options(parser)
     add_frame_sampler_options(parser)
     generate_unfolding_args(parser)
-    return parse_and_load_from_model(parser)
+    return parse_and_load_from_model(parser, model_path)

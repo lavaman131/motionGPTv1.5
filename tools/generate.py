@@ -4,7 +4,11 @@ Generate a large batch of image samples from a model and save them as a large
 numpy array. This can be used to produce samples for FID evaluation.
 """
 
+from mgpt.render.matplot.plot_script import (
+    plot_3d_motion_mix,
+)
 from mgpt.utils.fixseed import fixseed
+from mgpt.data_loaders.humanml.utils import paramUtil
 import os
 import numpy as np
 import torch
@@ -19,12 +23,14 @@ from mgpt.diffusion.diffusion_wrappers import (
 )
 from mgpt.constants.transforms import DATASET_STATS_DIR
 
+datasets_fps = {"humanml": 20, "babel": 30}
+
 
 def feats_to_xyz(sample, dataset, batch_size=1):
     if dataset == "humanml":  # for HumanML3D
         n_joints = 22
-        mean = np.load(DATASET_STATS_DIR.joinpath("HML_Mean_Gen.npy"))
-        std = np.load(DATASET_STATS_DIR.joinpath("HML_Std_Gen.npy"))
+        mean = np.load("dataset/HML_Mean_Gen.npy")
+        std = np.load("dataset/HML_Std_Gen.npy")
         sample = sample.cpu().permute(0, 2, 3, 1)
         sample = (sample * std + mean).float()
         sample = recover_from_ric(sample, n_joints)  # --> [1, 1, seqlen, njoints, 3]
@@ -67,7 +73,7 @@ def main():
     fixseed(args.seed)
     out_path = args.output_dir
     niter = os.path.basename(args.model_path).replace("model", "").replace(".pt", "")
-
+    fps = datasets_fps[args.dataset]
     assert (
         args.instructions_file == "" or "json" == args.instructions_file.split(".")[-1]
     ), "Instructions file must be a json file"
@@ -208,7 +214,7 @@ def main():
         {
             "motion": all_motions,
             "text": all_text,
-            "lengths": model_kwargs["y"]["lengths"].cpu().numpy(),
+            "lengths": all_lengths,
             "num_samples": args.num_samples,
             "num_repetitions": args.num_repetitions,
         },
@@ -217,6 +223,96 @@ def main():
         fw.write("\n".join(all_text))
     with open(npy_path.replace(".npy", "_len.txt"), "w") as fw:
         fw.write("\n".join([str(l) for l in all_lengths]))
+
+    print(f"saving visualizations to [{out_path}]...")
+    skeleton = paramUtil.t2m_kinematic_chain
+
+    (
+        sample_print_template,
+        row_print_template,
+        sample_file_template,
+        row_file_template,
+    ) = construct_template_variables(args.unconstrained)
+
+    try:
+        rep_files = []
+        for rep_i in range(args.num_repetitions):
+            caption = all_text[rep_i * args.num_samples]
+            motion = all_motions[rep_i * args.num_samples].transpose(2, 0, 1)
+            save_file = sample_file_template.format(rep_i)
+            print(sample_print_template.format(rep_i, save_file))
+            animation_save_path = os.path.join(animation_out_path, save_file)
+            lengths_list = model_kwargs["y"]["lengths"]
+            captions_list = []
+            for c, l in zip(caption.split(" /// "), lengths_list):
+                captions_list += [
+                    c,
+                ] * l
+            plot_3d_motion_mix(
+                animation_save_path,
+                skeleton,
+                motion,
+                dataset=args.dataset,
+                title=captions_list,
+                fps=fps,
+                vis_mode="alternate",
+                lengths=lengths_list,
+            )
+            # Credit for visualization: https://github.com/EricGuo5513/text-to-motion
+            rep_files.append(animation_save_path)
+    except Exception as e:
+        print(f"Error while processing sample: {e}")
+
+    save_multiple_samples(
+        args,
+        animation_out_path,
+        row_print_template,
+        row_file_template,
+        caption,
+        rep_files,
+    )
+
+    abs_path = os.path.abspath(animation_out_path)
+    print(f"[Done] Results are at [{abs_path}]")
+
+
+def save_multiple_samples(
+    args, out_path, row_print_template, row_file_template, caption, rep_files
+):
+    all_rep_save_file = row_file_template
+    all_rep_save_path = os.path.join(out_path, all_rep_save_file)
+    ffmpeg_rep_files = [f" -i {f} " for f in rep_files]
+    hstack_args = (
+        f" -filter_complex hstack=inputs={args.num_repetitions}"
+        if args.num_repetitions > 1
+        else ""
+    )
+    ffmpeg_rep_cmd = (
+        f"ffmpeg -y -loglevel warning "
+        + "".join(ffmpeg_rep_files)
+        + f"{hstack_args} {all_rep_save_path}"
+    )
+    os.system(ffmpeg_rep_cmd)
+    print(row_print_template.format(all_rep_save_file))
+
+
+def construct_template_variables(unconstrained):
+    row_file_template = "sample_all.mp4"
+    if unconstrained:
+        sample_file_template = "sample_rep{:02d}.mp4"
+        sample_print_template = "[rep #{:02d} | -> {}]"
+        row_print_template = "[all repetitions | -> {}]"
+    else:
+        sample_file_template = "sample_rep{:02d}.mp4"
+        sample_print_template = "[Rep #{:02d} | -> {}]"
+        row_print_template = "[all repetitions | -> {}]"
+
+    return (
+        sample_print_template,
+        row_print_template,
+        sample_file_template,
+        row_file_template,
+    )
 
 
 def load_dataset(args, split):

@@ -53,4 +53,7 @@ if __name__ == "__main__":
     query = "Can you generate a jumping jack?"
     # get chunks
     docs = db.similarity_search(query, k=4)
-    print(docs[0].page_content)
+    motion_dictionary = "\n".join(
+        ["".join(docs[i].page_content) for i in range(len(docs))]
+    )
+    print(motion_dictionary)

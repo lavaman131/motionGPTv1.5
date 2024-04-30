@@ -6,43 +6,18 @@ from mgpt.nlp.utils.duration_extraction import (
     MotionDurationModel,
 )
 from transformers import DistilBertTokenizer
-from mgpt.nlp import FileName, PRECOMPUTED_DIR
+from mgpt.nlp import FileName
 
 
-def tokenize_and_preserve_words(sentence, tokenizer, add_special_tokens=True):
-    tokenized_sentence = []
-    lengths = []
-
-    for word in sentence:
-        # Tokenize the word and count # of subwords the word is broken into
-        tokenized_word = tokenizer.tokenize(word)
-        n_subwords = len(tokenized_word)
-
-        # Add the tokenized word to the final tokenized word list
-        tokenized_sentence.extend(tokenized_word)
-        lengths.append(n_subwords)
-
-    if add_special_tokens:
-        tokenized_sentence = (
-            [f"{tokenizer.cls_token}"] + tokenized_sentence + [f"{tokenizer.sep_token}"]
-        )
-        lengths = [1] + lengths + [1]
-
-    return tokenized_sentence, lengths
-
-
-def postprocess_model_preds(preds, lengths):
+def postprocess_model_preds(output, word_ids):
     """
-    Averages the model output based on the lengths.
+    Averages the tokenizer output based on word_ids.
     """
-    predicted_durations = []
-    current_idx = 0
-    for length in lengths[1:-1]:
-        predicted_duration = np.nanmean(preds[current_idx : current_idx + length])
-        predicted_duration = max(0.5, predicted_duration)
-        predicted_durations.append(predicted_duration)
-        current_idx += length
-    return predicted_durations
+    n = len(np.unique(word_ids[1:-1]))
+    predicted_durations = [[] for _ in range(n)]
+    for i, word_id in enumerate(word_ids[1:-1]):  # ignore the special tokens
+        predicted_durations[word_id].append(output[i])
+    return [np.mean(p) for p in predicted_durations]
 
 
 def load_system_prompt_from_text(
@@ -77,21 +52,19 @@ def get_motion_dict_from_response(
         motion_json: MotionInstruction = {"text": [], "lengths": []}
         for action in raw_motion_json["actions"]:
             motion_json["text"].append(action["action"])
-        tokenized_sentence, lengths = tokenize_and_preserve_words(
-            motion_json["text"], tokenizer
-        )
         model.eval()
-        output = tokenizer(
-            tokenized_sentence,
-            is_split_into_words=True,
-            padding=True,
+        tokenized_inputs = tokenizer(
+            motion_json["text"],
             return_tensors="pt",
-            add_special_tokens=False,
+            truncation=True,
+            padding=False,
+            add_special_tokens=True,
+            is_split_into_words=True,
         ).to(device)
         with torch.no_grad():
-            preds = model(**output)
+            preds = model(**tokenized_inputs)
         durations = postprocess_model_preds(
-            preds.view(-1).detach().cpu().numpy(), lengths
+            preds.view(-1).detach().cpu().numpy(), tokenized_inputs.word_ids()
         )
         motion_json["lengths"] = durations
         return motion_json

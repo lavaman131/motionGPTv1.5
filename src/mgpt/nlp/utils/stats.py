@@ -39,6 +39,10 @@ def save_stats(file_path: FileName, precomputed_dir: FileName) -> None:
     ]
     stats["duration_sequences"] = duration_sequences
 
+    stats["max_duration"] = np.max(
+        [s for sequence in stats["duration_sequences"] for s in sequence]
+    )
+
     precomputed_dir = Path(precomputed_dir)
     precomputed_dir.mkdir(parents=True, exist_ok=True)
 
