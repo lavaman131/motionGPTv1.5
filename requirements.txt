@@ -14,7 +14,6 @@ pydantic
 sentence-transformers==2.7.0
 torchtext==0.18.0
 thefuzz==0.22.1
-"uvicorn[standard]"
 git+https://github.com/mcfletch/pyopengl.git
 git+https://github.com/mattloper/chumpy
 git+https://github.com/openai/CLIP.git

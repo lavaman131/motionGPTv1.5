@@ -24,15 +24,6 @@ python -m spacy download en_core_web_sm
 
 <details>
 
-**HumanML3D dataset**:
-
-Follow the instructions in [HumanML3D](https://github.com/EricGuo5513/HumanML3D.git),
-then copy the resulting dataset to our repository:
-
-```bash
-cp -r ../HumanML3D/HumanML3D ./dataset/HumanML3D
-```
-
 **Babel dataset**:
 
 1. Download the processed version [here](https://drive.google.com/file/d/18a4eRh8mbIFb55FMHlnmI8B8tSTkbp4t/view?usp=share_link), and place it at `./dataset/babel`.
@@ -49,7 +40,8 @@ For Babel dataset run:
 
 ```bash
 python tools/motion_gpt.py \
---user_prompt "Can you generate the hip abduction motion?"
+--user_prompt "Can you generate the hip abduction motion?" \
+--model_path ./pretrained_models/babel/model001300000.pt
 ```
 
 ## 🎨 Rendering
@@ -60,9 +52,9 @@ To render keypoints per frame (replacing `--dataset` with the correct name) run:
 
 ```bash
 python tools/render.py \
-  --joints_path ./results/output/results.npy \
-  --method fast \
-  --output_path ./results/output
+--joints_path ./results/output/results.npy \
+--method fast \
+--output_path ./results/output
 ```
 
 ### Render SMPL mesh
@@ -71,10 +63,10 @@ To create SMPL mesh per frame (replacing `--dataset` with the correct name) run:
 
 ```bash
 python tools/render.py \
-  --joints_path ./results/output/results.npy \
-  --method slow \
-  --dataset babel \
-  --output_path ./results/output
+--joints_path ./results/output/results.npy \
+--method slow \
+--dataset babel \
+--output_path ./results/output
 ```
 
 **This script outputs:**
@@ -92,31 +84,18 @@ python tools/render.py \
   2. A more straightforward way is using the mesh data itself. All meshes have the same topology (SMPL), so you just need to keyframe vertex locations. 
      Since the OBJs are not preserving vertices order, we also save this data to the `sample_rep##_smpl_params.npy` file for your convenience.
 
-# 📊 Evaluation
+# 📊 FlowMDM Evaluation
 
 To reproduce the Babel evaluation over the motion and transition run:
 
 ```bash
 python tools/evaluate.py \
-  --model_path ./results/babel/FlowMDM/model001300000.pt \
-  --dataset babel \
-  --eval_mode final \
-  --bpe_denoising_step 60 \
-  --guidance_param 1.5 \
-  --transition_length 30
-```
-
-To reproduce the HumanML3D evaluation over the motion and transition run:
-
-```bash
-python tools/evaluate.py \
-  --model_path ./results/humanml/FlowMDM/model000500000.pt \
-  --dataset humanml \
-  --eval_mode final \
-  --bpe_denoising_step 125 \
-  --guidance_param 2.5 \
-  --transition_length 60 \
-  --use_chunked_att
+--model_path ./pretrained_models/babel/model001300000.pt \
+--dataset babel \
+--eval_mode final \
+--bpe_denoising_step 60 \
+--guidance_param 1.5 \
+--transition_length 30
 ```
 
 Add `--use_chunked_att` to accelerate inference for very long compositions (imported from LongFormer, and recommended for HumanML3D). Evaluation can take >12h for the 10 repetitions depending on the GPU power. Use `--eval_mode fast` for a quick evaluation run (3 rep.). 
@@ -124,7 +103,7 @@ Add `--use_chunked_att` to accelerate inference for very long compositions (impo
 > [!NOTE]
 > During evaluation, generated motions are backed up to be used in successive evaluations. This is useful in case you want to change some evaluation parameters such as the `transition_length` and avoid regenerating all evaluation sequences. 
 
-# 🏋️‍♂️ Training
+# 🏋️‍♂️ FlowMDM Training
 
 Configure the following paths in `./src/mgpt/constants/__init__.py` to your configuration:
 
@@ -141,28 +120,14 @@ To retrain FlowMDM with Babel dataset run:
 
 ```bash
 python tools/train.py \
-  --save_dir ./results/babel/FlowMDM_retrained \
-  --dataset babel \
-  --batch_size 64 \
-  --num_steps 1300000 \
-  --rpe_horizon 100 \
-  --train_platform_type WandbPlatform \
-  --wandb_project mgpt \
-  --wandb_entity lavaalex
-```
-
-To retrain FlowMDM with HumanML3D dataset run:
-
-```bash
-python tools/train.py \
-  --save_dir ./results/babel/FlowMDM_retrained \
-  --dataset humanml \
-  --batch_size 64 \
-  --num_steps 500000 \
-  --rpe_horizon 150 \
-  --train_platform_type WandbPlatform \
-  --wandb_project mgpt \
-  --wandb_entity lavaalex
+--save_dir ./results/babel/FlowMDM_retrained \
+--dataset babel \
+--batch_size 64 \
+--num_steps 1300000 \
+--rpe_horizon 100 \
+--train_platform_type WandbPlatform \
+--wandb_project mgpt \
+--wandb_entity lavaalex
 ```
 
 # 🤝 Acknowledgements

@@ -4,15 +4,13 @@ import os
 import json
 
 
-def parse_and_load_from_model(parser, manual_model_path=None, update_args=True):
+def parse_and_load_from_model(parser, update_args=True):
     # args according to the loaded model
     # do not try to specify them from cmd line since they will be overwritten
     add_data_options(parser)
     add_model_options(parser)
     add_diffusion_options(parser)
     args = parser.parse_args()
-    if manual_model_path:
-        args.model_path = manual_model_path
     if update_args:
         args_to_overwrite = []
         for group_name in ["dataset", "model", "diffusion"]:
@@ -76,6 +74,9 @@ def get_args_per_group_name(parser, args, group_name):
 
 def add_base_options(parser):
     group = parser.add_argument_group("base")
+    parser.add_argument(
+        "--user_prompt", type=str, help="The user prompt for motion generation."
+    )
     group.add_argument(
         "--cuda", default=True, type=bool, help="Use cuda device, otherwise use CPU."
     )
@@ -496,7 +497,7 @@ def generate_unfolding_args(parser):
     )
 
 
-def generate_args(model_path=None):
+def generate_args():
     parser = ArgumentParser()
     # args specified by the user: (all other will be loaded from the model)
     add_base_options(parser)
@@ -505,24 +506,24 @@ def generate_args(model_path=None):
     add_generate_unfolded_options(parser)
     generate_unfolding_args(parser)
 
-    args = parse_and_load_from_model(parser, model_path)
+    args = parse_and_load_from_model(parser)
     return args
 
 
-def edit_args(model_path=None):
+def edit_args():
     parser = ArgumentParser()
     # args specified by the user: (all other will be loaded from the model)
     add_base_options(parser)
     add_sampling_options(parser)
     add_edit_options(parser)
-    return parse_and_load_from_model(parser, model_path)
+    return parse_and_load_from_model(parser)
 
 
-def evaluation_parser(model_path=None):
+def evaluation_parser():
     parser = ArgumentParser()
     # args specified by the user: (all other will be loaded from the model)
     add_base_options(parser)
     add_evaluation_options(parser)
     add_frame_sampler_options(parser)
     generate_unfolding_args(parser)
-    return parse_and_load_from_model(parser, model_path)
+    return parse_and_load_from_model(parser)

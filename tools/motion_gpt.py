@@ -23,22 +23,11 @@ from mgpt.utils import dist_util
 from mgpt.diffusion.diffusion_wrappers import (
     DiffusionWrapper_FlowMDM as DiffusionWrapper,
 )
-from argparse import ArgumentParser
-
-
-def get_args():
-    parser = ArgumentParser()
-    parser.add_argument(
-        "--user_prompt", type=str, help="The user prompt for motion generation."
-    )
-    parser.add_argument("--seed", type=int, default=42, help="Random seed.")
-    args = parser.parse_args()
-    return args
 
 
 def main():
     # Load model
-    args = get_args()
+    args = generate_args()
 
     pl.seed_everything(args.seed)
     user_prompt = args.user_prompt
@@ -81,12 +70,8 @@ def main():
         "distilbert/distilbert-base-uncased"
     )
 
-    model_base_dir = Path("../pretrained_models/babel").resolve()
-
-    args = generate_args(model_path=str(model_base_dir))
     args.bpe_denoising_step = 60
     args.guidance_param = 1.5
-    args.model_path = str(model_base_dir.joinpath("model001300000.pt"))
     # ================= Load model and diffusion wrapper ================
     print("Creating model and diffusion...")
     model, diffusion = load_model(args, dist_util.dev())
@@ -113,6 +98,8 @@ def main():
             "content": user_prompt,
         },
     ]
+
+    print(f"Raw model input:\n {messages}")
 
     input_ids = language_tokenizer.apply_chat_template(
         messages, add_generation_prompt=True, return_tensors="pt"
