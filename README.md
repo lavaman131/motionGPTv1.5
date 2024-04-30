@@ -1,4 +1,4 @@
-# MotionGPTv2
+# MotionGPTv1.5
 
 # 🚀 Get started
 
@@ -48,37 +48,9 @@ To generate the motions use the following scripts:
 For Babel dataset run:
 
 ```bash
-python tools/generate.py \
-  --model_path ./results/babel/FlowMDM/model001300000.pt \
-  --num_repetitions 1 \
-  --bpe_denoising_step 60 \
-  --guidance_param 1.5 \
-  --instructions_file ./instructions/composition_babel.json \
-  --output_dir ./results/output
+python tools/motion_gpt.py \
+--user_prompt "Can you generate the hip abduction motion?"
 ```
-
-To generate examples of human motion compositions with HumanML3D model run:
-
-```bash
-python tools/generate.py \
-  --model_path ./results/humanml/FlowMDM/model000500000.pt \
-  --num_repetitions 1 \
-  --bpe_denoising_step 125 \
-  --guidance_param 2.5 \
-  --instructions_file ./instructions/composition_humanml.json \
-  --use_chunked_att \
-  --output_dir ./results/output
-```
-
-If you have downloaded the datasets, you can replace `--instructions_file FILE` with `--num_samples N` to randomly sample N textual descriptions and lengths from the datasets.
-
-Use json files `extrapolation_babel.json`and `extrapolation_humanml.json` to generate examples of extrapolations.
-
-Add `--use_chunked_att` to accelerate inference for very long compositions (recommended for HumanML3D, which contains very long sequences).
-
-It will look something like this:
-
-![example](../assets/mp4_example.gif)
 
 ## 🎨 Rendering
 
@@ -195,6 +167,6 @@ python tools/train.py \
 
 # 🤝 Acknowledgements
 
-[MotionGPT](https://github.com/OpenMotionLab/MotionGPT): Inspired ideas for the project.
-[FlowMDM](https://github.com/BarqueroGerman/FlowMDM/tree/main): Inherited for 3D motion synthesis.
-[llama3](https://github.com/meta-llama/llama3)
+* [MotionGPT](https://github.com/OpenMotionLab/MotionGPT): Inspired ideas for the project.
+* [FlowMDM](https://github.com/BarqueroGerman/FlowMDM/tree/main): Inherited for 3D motion synthesis.
+* [llama3](https://github.com/meta-llama/llama3)

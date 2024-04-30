@@ -23,11 +23,25 @@ from mgpt.utils import dist_util
 from mgpt.diffusion.diffusion_wrappers import (
     DiffusionWrapper_FlowMDM as DiffusionWrapper,
 )
+from argparse import ArgumentParser
+
+
+def get_args():
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--user_prompt", type=str, help="The user prompt for motion generation."
+    )
+    parser.add_argument("--seed", type=int, default=42, help="Random seed.")
+    args = parser.parse_args()
+    return args
 
 
 def main():
     # Load model
-    pl.seed_everything(42)
+    args = get_args()
+
+    pl.seed_everything(args.seed)
+    user_prompt = args.user_prompt
 
     language_model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
 
@@ -82,7 +96,6 @@ def main():
         PROMPT_LIBRARY_DIR.joinpath("improved_system_prompt.txt")
     )
 
-    user_prompt = "Can you generate the hip abduction motion?"
     db = init_vector_db("action_vocab.txt", PRECOMPUTED_DIR)
     # get chunks
     docs = db.similarity_search(user_prompt, k=4)
